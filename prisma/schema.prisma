@@ -1,0 +1,175 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Course {
+  id Int @id @default(autoincrement())
+  name String
+  description String?
+  quizzes Quiz[]
+
+  courseTeachers TeacherCourse[]
+  courseStudents StudentCourse[]
+  @@map("courses")
+}
+
+model Quiz {
+  id Int @id @default(autoincrement())
+  name String
+  description String?
+
+  courseId Int
+  course Course @relation(fields: [courseId], references: [id])
+
+  questions Question[]
+  tests Test[]
+
+  @@index([courseId], name: "courseId")
+  @@map(name: "quiz")
+}
+
+model Question {
+  id Int @id @default(autoincrement())
+  question String
+
+  quizId Int
+  quiz Quiz @relation(fields: [quizId], references: [id])
+
+  answers PossibleAnswer[]
+  testQuestions TestQuestion[]
+  @@index([quizId], name: "quizId")
+  @@map(name: "question")
+}
+
+model PossibleAnswer {
+  id Int @id @default(autoincrement())
+  answer String
+  isCorrect Boolean
+
+  questionId Int
+  question Question @relation(fields: [questionId], references: [id])
+
+  testAnswers TestAnswer[]
+
+  @@index([questionId], name: "questionId")
+  @@map(name: "possible_answer")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  firstName String
+  lastName  String
+  password  String
+  birthDate DateTime?
+  isAdmin   Boolean  @default(false)
+  hashedRt String?
+
+  teacherId Int? @unique
+  studentId Int? @unique
+
+  teacherCourses TeacherCourse[]
+  teacherComments TeacherComment[]
+  studentCourses StudentCourse[]
+  studentTests Test[]
+
+  @@map(name: "user")
+}
+
+model TeacherCourse {
+  id Int @id @default(autoincrement())
+
+  teacherId Int
+  teacher User @relation(fields: [teacherId], references: [id])
+
+  courseId Int
+  course Course @relation(fields: [courseId], references: [id])
+
+  @@unique([teacherId, courseId])
+  @@index([teacherId], name: "teacherId")
+  @@index([courseId], name: "courseId")
+  @@map(name: "teacher_course")
+}
+
+model StudentCourse {
+  id Int @id @default(autoincrement())
+
+  studentId Int
+  student User @relation(fields: [studentId], references: [id])
+  courseId Int
+  course Course @relation(fields: [courseId], references: [id])
+
+  @@unique([studentId, courseId])
+  @@index([studentId], name: "studentId")
+  @@index([courseId], name: "courseId")
+  @@map("student_course")
+}
+
+model Test {
+  id Int @id @default(autoincrement())
+  score Int?
+
+  studentId Int
+  student User @relation(fields: [studentId], references: [id])
+  quizId Int
+  quiz Quiz @relation(fields: [quizId], references: [id])
+
+  questions TestQuestion[]
+
+  @@index([studentId], name: "studentId")
+  @@index([quizId], name: "quizId")
+  @@map(name: "test")
+}
+
+model TestQuestion {
+  id Int @id @default(autoincrement())
+  explanation String?
+
+  testId Int
+  test Test @relation(fields: [testId], references: [id])
+  questionId Int
+  question Question @relation(fields: [questionId], references: [id])
+
+  answers TestAnswer[]
+  comments TeacherComment[]
+
+  @@index([testId], name: "testId")
+  @@index([questionId], name: "questionId")
+  @@map(name: "test_question")
+}
+
+model TeacherComment {
+  id Int @id @default(autoincrement())
+  comment String
+
+  testQuestionId Int
+  teacherId Int
+
+  testQuestion TestQuestion @relation(fields: [testQuestionId], references: [id])
+  teacher User @relation(fields: [teacherId], references: [id])
+
+  @@index([testQuestionId], name: "testQuestionId")
+  @@index([teacherId], name: "teacherId")
+  @@map("teacher_comment")
+}
+
+model TestAnswer {
+  id Int @id @default(autoincrement())
+  testQuestionId Int
+  possibleAnswerId Int
+
+  testQuestion TestQuestion @relation(fields: [testQuestionId], references: [id])
+  possibleAnswer PossibleAnswer @relation(fields: [possibleAnswerId], references: [id])
+
+  @@index([testQuestionId], name: "testQuestionId")
+  @@index([possibleAnswerId], name: "possibleAnswerId")
+  @@map(name: "test_answers")
+}
