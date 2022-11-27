@@ -5,13 +5,14 @@ import { PrismaService } from "../prisma/prisma.service";
 import { JwtService } from "@nestjs/jwt";
 import { Tokens } from "./types";
 import { Prisma } from '@prisma/client';
+import { Response } from "express";
 
 @Injectable()
 export class AuthService{
     constructor(private readonly prisma: PrismaService,
                 private readonly jwtService: JwtService) {}
 
-    async register(dto: SignUpRequest) : Promise<Tokens>{
+    async register(dto: SignUpRequest){
       let user;
       try {
         user = await this.prisma.user.create({
@@ -28,12 +29,12 @@ export class AuthService{
         }
       }
 
-      const tokens = await this.SignTokens(user.id, user.email);
-      await this.updateRtHash(user.id, tokens.refresh_token);
-      return tokens;
+      // const tokens = await this.SignTokens(user.id, user.email);
+      // await this.updateRtHash(user.id, tokens.refresh_token);
+      return { msg: "User created" };
     }
 
-    async login(dto: SignInRequest) : Promise<Tokens> {
+    async login(dto: SignInRequest, res: Response){
       const user = await this.prisma.user.findUnique({
         where: {
           email: dto.email,
@@ -50,10 +51,11 @@ export class AuthService{
 
       const tokens = await this.SignTokens(user.id, user.email);
       await this.updateRtHash(user.id, tokens.refresh_token);
+
       return tokens;
     }
 
-    async logout(userId: number) {
+    async logout(userId: number, res: Response) {
       await this.prisma.user.updateMany({
         where: {
           id: userId,
@@ -65,32 +67,33 @@ export class AuthService{
           hashedRt: null,
         }
       });
-
-      return "ok";
+      res.clearCookie('refresh_token');
+      return true;
     }
 
-    async refreshTokens(userId: number, refreshToken: string) {
+    async refreshTokens(userId: number, refreshToken: string, res: Response) {
+      console.log(userId);
       const user = await this.prisma.user.findUnique({
         where: {
           id: userId,
         }
       });
 
-      if(!user){
-        throw new ForbiddenException('User not found');
-      }
-
-      if(!user.hashedRt){
-        throw new ForbiddenException('User not found');
+      if(!user || !user.hashedRt){
+        throw new ForbiddenException('Access denied');
       }
 
       if(!await argon.verify(user.hashedRt, refreshToken)){
-        throw new ForbiddenException('User not found');
+        throw new ForbiddenException('Access denied');
       }
 
       const tokens = await this.SignTokens(user.id, user.email);
       await this.updateRtHash(user.id, tokens.refresh_token);
-      return tokens;
+
+      res.cookie('refresh_token', tokens.refresh_token, {httpOnly: true});
+      return {
+        access_token: tokens.access_token,
+      };
     }
 
     async SignTokens(userId: number, email: string) : Promise<Tokens> {
