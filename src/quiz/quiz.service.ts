@@ -12,58 +12,107 @@ export class QuizService {
     private readonly quizMapper: QuizMapper,
   ) {}
 
-  async get(id: number) {
-    const quizItem = await this.prisma.quiz.findUnique({
+  async get(userId: number, id: number) {
+    const quizList = await this.prisma.quiz.findMany({
       where: {
         id: id,
+        course: {
+          courseTeachers: {
+            some: {
+              teacherId: userId,
+            },
+          },
+        },
       },
     });
-    const course = await this.prisma.course.findUnique({
+    const quizItem = quizList[0];
+    const courseList = await this.prisma.course.findMany({
       where: {
         id: quizItem.courseId,
+        courseTeachers: {
+          some: {
+            teacherId: userId,
+          },
+        },
       },
     });
+    const course = courseList[0];
     if (!quizItem) return { error: 'Quiz not found' };
     return this.quizMapper.mapQuizResponse(quizItem, course);
   }
 
-  async getAll() {
+  async getAll(userId: number) {
     const quizzes = [] as QuizResponse[];
-    const quizList = await this.prisma.quiz.findMany();
+    const quizList = await this.prisma.quiz.findMany({
+      where: {
+        course: {
+          courseTeachers: {
+            some: {
+              teacherId: userId,
+            },
+          },
+        },
+      },
+    });
     for (const quiz of quizList) {
-      const course = await this.prisma.course.findUnique({
+      const course = await this.prisma.course.findMany({
         where: {
           id: quiz.courseId,
+          courseTeachers: {
+            some: {
+              teacherId: userId,
+            },
+          },
         },
       });
-      quizzes.push(await this.quizMapper.mapQuizResponse(quiz, course));
+      quizzes.push(await this.quizMapper.mapQuizResponse(quiz, course[0]));
     }
     return { quizzes };
   }
 
-  async create(createQuizRequest: CreateQuizRequest) {
+  async create(userId: number, createQuizRequest: CreateQuizRequest) {
+    // security risk
+    // user can create a quiz for other user's course
     const quiz = await this.prisma.quiz.create({
       data: createQuizRequest,
     });
     return quiz;
   }
 
-  async delete(id: number) {
-    const quiz = await this.prisma.quiz.delete({
+  async delete(userId: number, id: number) {
+    const quiz = await this.prisma.quiz.deleteMany({
       where: {
         id: id,
+        course: {
+          courseTeachers: {
+            some: {
+              teacherId: userId,
+            },
+          },
+        },
       },
     });
 
     return true;
   }
 
-  async update(id: number, updateQuizRequest: UpdateQuizRequest) {
+  async update(
+    userId: number,
+    id: number,
+    updateQuizRequest: UpdateQuizRequest,
+  ) {
     updateQuizRequest.courseId = Number(updateQuizRequest.courseId);
     console.log(updateQuizRequest);
-    const quiz = await this.prisma.quiz.update({
+    const quiz = await this.prisma.quiz.updateMany({
       where: {
         id: id,
+        course: {
+          courseTeachers: {
+            some: {
+              teacherId: userId,
+            },
+          },
+        },
       },
       data: updateQuizRequest,
     });

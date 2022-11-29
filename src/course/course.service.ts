@@ -7,46 +7,86 @@ import { UpdateCourseRequest } from './dto/request/update-course.request';
 export class CourseService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async get(id: number) {
-    const quiz = await this.prisma.course.findUnique({
+  async get(userId: number, id: number) {
+    const course = await this.prisma.course.findMany({
       where: {
         id: id,
+        courseTeachers: {
+          some: {
+            teacherId: userId,
+          },
+        },
       },
     });
-    if (!quiz) return { error: 'Course not found' };
-    return quiz;
+    if (!course[0]) return { error: 'Course not found' };
+    return course[0];
   }
 
-  async getAll() {
-    const courses = await this.prisma.course.findMany();
+  async getAll(userId: number) {
+    const courses = await this.prisma.course.findMany({
+      where: {
+        courseTeachers: {
+          some: {
+            teacherId: userId,
+          },
+        },
+      },
+    });
     return { courses };
   }
 
-  async create(createCourseRequest: CreateCourseRequest) {
-    const quiz = await this.prisma.course.create({
-      data: createCourseRequest,
+  async create(userId: number, createCourseRequest: CreateCourseRequest) {
+    const course = await this.prisma.course.create({
+      data: {
+        ...createCourseRequest,
+        courseTeachers: {
+          create: [
+            {
+              teacher: {
+                connect: {
+                  teacherId: userId,
+                },
+              },
+            },
+          ],
+        },
+      },
     });
-    return quiz;
+    return course;
   }
 
-  async delete(id: number) {
-    const quiz = await this.prisma.course.delete({
+  async delete(userId: number, id: number) {
+    const course = await this.prisma.course.deleteMany({
       where: {
         id: id,
+        courseTeachers: {
+          some: {
+            teacherId: userId,
+          },
+        },
       },
     });
 
     return true;
   }
 
-  async update(id: number, updateCourseRequest: UpdateCourseRequest) {
-    const quiz = await this.prisma.course.update({
+  async update(
+    userId: number,
+    id: number,
+    updateCourseRequest: UpdateCourseRequest,
+  ) {
+    const course = await this.prisma.course.updateMany({
       where: {
         id: id,
+        courseTeachers: {
+          some: {
+            teacherId: userId,
+          },
+        },
       },
       data: updateCourseRequest,
     });
 
-    return quiz;
+    return course;
   }
 }

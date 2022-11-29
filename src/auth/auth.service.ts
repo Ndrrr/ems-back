@@ -27,6 +27,18 @@ export class AuthService {
           lastName: dto.lastName,
         },
       });
+      // should be removed in full version
+      // as there is not teacher and student here
+      // they should get created in the register process
+      user = await this.prisma.user.update({
+        where: {
+          id: user.id,
+        },
+        data: {
+          teacherId: user.id,
+          studentId: user.id,
+        },
+      });
     } catch (e) {
       if (e.code === 'P2002') {
         throw new BadRequestException('User already exists');
