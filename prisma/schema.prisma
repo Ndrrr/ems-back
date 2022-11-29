@@ -27,7 +27,7 @@ model Quiz {
   description String?
 
   courseId Int
-  course Course @relation(fields: [courseId], references: [id])
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   questions Question[]
   tests Test[]
